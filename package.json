@@ -1,0 +1,46 @@
+{
+  "name": "motionmagic",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "worker": "tsx workers/generation-worker.ts",
+    "cleanup": "tsx workers/cleanup-worker.ts",
+    "test:gif": "tsx scripts/test-gif.ts",
+    "typecheck": "tsc --noEmit",
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate",
+    "samples": "tsx scripts/make-samples.ts",
+    "test:effects": "tsx scripts/test-effects.ts",
+    "test:html": "tsx scripts/test-html.ts",
+    "postinstall": "prisma generate",
+    "seed": "tsx scripts/seed-templates.ts",
+    "samples:biz": "tsx scripts/make-biz-samples.ts",
+    "test:business": "tsx scripts/test-business.ts",
+    "test:payments": "tsx scripts/test-payments.ts",
+    "test:personalized": "tsx scripts/test-personalized.ts",
+    "test:storage": "tsx scripts/test-storage.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "next": "^14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sharp": "^0.33.5",
+    "zod": "^3.23.8",
+    "playwright": "^1.48.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.0",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^3.4.13",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  }
+}

@@ -1,0 +1,193 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GenerationStatus {
+  DRAFT            // uploaded, not yet paid
+  AWAITING_PAYMENT // price shown, payment started
+  QUEUED           // paid, waiting for worker
+  PROCESSING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  NONE
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  REFUNDED
+  FAILED
+  CANCELLED  // customer backed out at the gateway
+  EXPIRED    // never completed within the time limit
+  REFUND_DUE // money was taken but the GIF was not delivered: refund it in the Easypaisa portal, then mark it refunded in /admin
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique   // always lower-case
+  name          String
+  passwordHash  String?                  // null for Google-only accounts
+  googleId      String?       @unique
+  emailVerified Boolean       @default(false) // true only when Google confirmed the address
+  createdAt     DateTime      @default(now())
+  lastLoginAt   DateTime      @default(now())
+  sessions      AuthSession[]
+  generations   Generation[]
+}
+
+model AuthSession {
+  id         String   @id          // sha256 of the cookie token: a database leak cannot be used to log in
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model GuestSession {
+  id          String       @id @default(cuid())
+  createdAt   DateTime     @default(now())
+  lastSeenAt  DateTime     @default(now())
+  email       String?      // optional, for download recovery
+  generations Generation[]
+}
+
+model Generation {
+  id              String           @id @default(cuid())
+  guestSessionId  String
+  guestSession    GuestSession     @relation(fields: [guestSessionId], references: [id])
+  userId          String?          // set when a signed-in customer owns it (account history)
+  user            User?            @relation(fields: [userId], references: [id])
+  effect          String           // e.g. "cartoon-bounce", "ai-custom" or "biz-ad-spotlight"
+  kind            String           @default("viral") // "viral" | "prompt" (blank canvas) | "business"
+  width           Int?             // output canvas chosen by the customer (business / prompt GIFs)
+  height          Int?
+  options         Json             @default("{}")
+  status          GenerationStatus @default(DRAFT)
+  paymentStatus   PaymentStatus    @default(NONE)
+  aiProvider      String?
+  aiModel         String?
+  aiCostUsd       Decimal          @default(0) @db.Decimal(10, 4)   // actual billed (0 on free-tier keys)
+  aiNotionalCostUsd Decimal        @default(0) @db.Decimal(10, 5)   // what the same calls would cost on paid pricing
+  priceUsd        Decimal          @db.Decimal(10, 2)
+  errorMessage    String?
+  attempts        Int              @default(0)
+  originalKey     String           // private storage key of uploaded image
+  outputKey       String?          // private storage key of final GIF
+  createdAt       DateTime         @default(now())
+  processingStartedAt DateTime?  // set when a worker claims the job; used for stuck-job recovery
+  completedAt     DateTime?
+  expiresAt       DateTime
+  assets          GeneratedAsset[]
+  payments        Payment[]
+  downloads       Download[]
+  aiUsage         AiUsageLog[]
+
+  @@index([guestSessionId])
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model GeneratedAsset {
+  id            String     @id @default(cuid())
+  generationId  String
+  generation    Generation @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  kind          String     // "original" | "ai-image" | "ai-video" | "gif"
+  storageKey    String
+  bytes         Int
+  width         Int?
+  height        Int?
+  createdAt     DateTime   @default(now())
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  generationId    String
+  generation      Generation    @relation(fields: [generationId], references: [id])
+  provider        String
+  providerRef     String?
+  providerOrderId String?       @unique // the order reference we sent to the gateway (max 20 letters/digits)
+  idempotencyKey  String        @unique
+  amountUsd       Decimal       @db.Decimal(10, 2) // list price in USD (for cost/margin reports)
+  amountPkr       Int           @default(0)        // what the customer actually pays, whole rupees
+  currency        String        @default("PKR")
+  status          PaymentStatus @default(PENDING)
+  rawStatus       String?       // last status text from the gateway (for support)
+  failureReason   String?
+  paidAt          DateTime?
+  refundedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model Download {
+  id            String     @id @default(cuid())
+  generationId  String
+  generation    Generation @relation(fields: [generationId], references: [id])
+  createdAt     DateTime   @default(now())
+  ipHash        String?
+}
+
+model AnimationTemplate {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  kind      String   // "viral" | "business"
+  category  String?  // business: "product-ad" | "logo" | "banner" | "showcase"
+  tagline   String   @default("")
+  usesAi    Boolean  @default(false)
+  priceUsd  Decimal  @db.Decimal(10, 2)
+  seconds   Int      @default(4)
+  sortOrder Int      @default(0)
+  config    Json     @default("{}") // fields, sizes, palette: filled by `npm run seed`
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+/// Saved AI designs, so the same prompt never pays the AI twice (see features/generation/design-cache.ts).
+model DesignCache {
+  id         String   @id @default(cuid())
+  promptKey  String   @unique // sha1 of the normalized prompt
+  prompt     String
+  title      String
+  html       String   @db.Text // already sanitized
+  provider   String
+  model      String
+  costUsd    Decimal  @default(0) @db.Decimal(10, 5) // what it cost to create (notional on free tiers)
+  hits       Int      @default(0) // times it was reused instead of calling the AI
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  @@index([lastUsedAt])
+}
+
+model AiUsageLog {
+  id            String     @id @default(cuid())
+  generationId  String
+  generation    Generation @relation(fields: [generationId], references: [id])
+  provider      String
+  model         String
+  step          String     // "design" | "eyes" | "image-edit" | "image-to-motion"
+  costUsd       Decimal    @db.Decimal(10, 5)   // actual billed
+  notionalCostUsd Decimal  @default(0) @db.Decimal(10, 5)
+  inputTokens   Int        @default(0)
+  outputTokens  Int        @default(0)
+  success       Boolean
+  createdAt     DateTime   @default(now())
+
+  @@index([createdAt])
+  @@index([provider, createdAt])
+}
