@@ -13,7 +13,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const runAi = new URL(req.url).searchParams.get("run") === "1";
   try {
     const gif = await getPreviewGif(params.id, session.id, runAi);
-    return new NextResponse(gif, { headers: { "Content-Type": "image/gif", "Cache-Control": "private, max-age=600" } });
+    return new NextResponse(new Uint8Array(gif), { headers: { "Content-Type": "image/gif", "Cache-Control": "private, max-age=600" } });
   } catch (e) {
     if (e instanceof PreviewError) {
       return NextResponse.json({ error: e.message, needsAi: e.needsAi }, { status: e.status });

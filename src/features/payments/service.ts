@@ -133,7 +133,8 @@ async function markPaid(paymentId: string, providerRef?: string, raw?: string) {
   const payment = await db.payment.findUniqueOrThrow({ where: { id: paymentId } });
   const gen0 = await db.generation.findUnique({ where: { id: payment.generationId }, select: { kind: true } });
   // Personalized GIFs are drawn on demand at download time, so they never go through the worker: paid = ready.
-  const next = gen0?.kind === "personal" ? { status: "COMPLETED", completedAt: new Date() } : { status: "QUEUED" };
+  const next: { status: "COMPLETED" | "QUEUED"; completedAt?: Date } =
+    gen0?.kind === "personal" ? { status: "COMPLETED", completedAt: new Date() } : { status: "QUEUED" };
   const queued = await db.generation.updateMany({ where: { id: payment.generationId, status: "DRAFT" }, data: { paymentStatus: "AUTHORIZED", ...next } });
   if (queued.count === 0) {
     // Money arrived but the creation cannot run (already paid by another attempt, expired or deleted): give it back.

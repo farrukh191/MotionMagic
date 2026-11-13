@@ -21,7 +21,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   } catch {
     return NextResponse.json({ error: "File no longer available." }, { status: 410 });
   }
-  return new NextResponse(data, {
+  return new NextResponse(new Uint8Array(data), {
     headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=300" },
   });
 }

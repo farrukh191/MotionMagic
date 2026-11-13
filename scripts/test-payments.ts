@@ -54,10 +54,11 @@ const table = (name: string) => ({
   },
 });
 (globalThis as any).prisma = { generation: table("generation"), payment: table("payment") };
-process.env.PAYMENT_PROVIDER = "easypaisa-sim";
-process.env.NODE_ENV = "test";
-process.env.ALLOW_PAYMENT_SIM = "true";
-process.env.AI_MODE = "mock";
+const setEnv = (key: string, value: string) => Object.defineProperty(process.env, key, { value, configurable: true, writable: true, enumerable: true });
+setEnv("PAYMENT_PROVIDER", "easypaisa-sim");
+setEnv("NODE_ENV", "test");
+setEnv("ALLOW_PAYMENT_SIM", "true");
+setEnv("AI_MODE", "mock");
 
 let failed = 0;
 const check = (ok: boolean, msg: string) => {

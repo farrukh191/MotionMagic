@@ -69,12 +69,13 @@ const table = (name: string) => ({
 
 const tmp = path.join(os.tmpdir(), `mm-test-${process.pid}`);
 require("node:fs").mkdirSync(tmp, { recursive: true });
-process.env.LOCAL_STORAGE_DIR = tmp;
-process.env.PAYMENT_PROVIDER = "easypaisa-sim";
-process.env.ALLOW_PAYMENT_SIM = "true";
-process.env.NODE_ENV = "test";
-process.env.AI_MODE = "mock";
-process.env.PERSONALIZED_ONLY = "true";
+const setEnv = (key: string, value: string) => Object.defineProperty(process.env, key, { value, configurable: true, writable: true, enumerable: true });
+setEnv("LOCAL_STORAGE_DIR", tmp);
+setEnv("PAYMENT_PROVIDER", "easypaisa-sim");
+setEnv("ALLOW_PAYMENT_SIM", "true");
+setEnv("NODE_ENV", "test");
+setEnv("AI_MODE", "mock");
+setEnv("PERSONALIZED_ONLY", "true");
 
 let failed = 0;
 const check = (ok: boolean, msg: string) => {

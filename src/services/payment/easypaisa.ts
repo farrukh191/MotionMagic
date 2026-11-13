@@ -54,7 +54,11 @@ export function epHash(params: Record<string, string>, hashKey: string): string 
 }
 
 /** The browser redirect for a hosted checkout. Pure function so it can be tested without the network. */
-export function buildHostedCheckout(input: CheckoutInput, now = new Date(), conf = cfg) {
+export function buildHostedCheckout(
+  input: CheckoutInput,
+  now = new Date(),
+  conf = cfg,
+): { url: string; params: Record<string, string> } {
   const params: Record<string, string> = {
     amount: epAmount(input.amountPkr),
     autoRedirect: "1",

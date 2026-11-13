@@ -26,7 +26,7 @@ export async function GET(req: Request, { params }: { params: { token: string } 
     data: { generationId: out.id, ipHash: createHash("sha256").update(ip).digest("hex").slice(0, 16) },
   });
 
-  return new NextResponse(out.data, {
+  return new NextResponse(new Uint8Array(out.data), {
     headers: {
       "Content-Type": "image/gif",
       "Content-Disposition": `attachment; filename="motionmagic-${out.id}.gif"`,

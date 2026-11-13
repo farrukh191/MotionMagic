@@ -35,7 +35,15 @@ async function photo(kind: "square" | "landscape" | "portrait" | "tiny" | "noisy
       return sharp(base).resize(120, 120).png().toBuffer();
     case "noisy": {
       // Worst case for GIF: real-photo-like grain everywhere.
-      const noise = await sharp({ create: { width: 1200, height: 900, channels: 3, noise: { type: "gaussian", mean: 128, sigma: 55 } } }).png().toBuffer();
+      const noise = await sharp({
+        create: {
+          width: 1200,
+          height: 900,
+          channels: 3,
+          background: { r: 255, g: 255, b: 255, alpha: 1 },
+          noise: { type: "gaussian", mean: 128, sigma: 55 },
+        },
+      }).png().toBuffer();
       return sharp(base).resize(1200, 900, { fit: "cover" }).composite([{ input: noise, blend: "overlay" }]).png().toBuffer();
     }
   }
